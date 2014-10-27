@@ -8,6 +8,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.StringTokenizer;
 
+//import server.HttpMessage;
+
 public class WebServer {
 	static ServerSocket listenSocket;
 
@@ -30,7 +32,7 @@ public class WebServer {
 		BufferedReader clientRequest;
 		DataOutputStream serverReply;
 		try {
-			//while (true) {
+			while (true) {
 				clientConnectionSocket = listenSocket.accept();
 				clientRequest = new BufferedReader(new InputStreamReader(
 						clientConnectionSocket.getInputStream()));
@@ -42,19 +44,21 @@ public class WebServer {
 						clientRequestLine);
 				if (tokenizedLine.nextToken().equals("GET")) {
 					filePath = tokenizedLine.nextToken();
-					if (filePath.startsWith("/")) {
-						filePath = filePath.substring(2);
-						String[] s = filePath.split("/");
-						filePath = s[0] + "/public_html";
-						for (int i = 1; i < s.length; i++) {
-							filePath = filePath + "/" + s[i];
-						}
-						if (s.length == 1) {
-							filePath = filePath + "/" + "index.html";
-						}
+					if(filePath.equals("/favicon.ico")) continue;
+					filePath = filePath.substring(2);
+					String[] s = filePath.split("/");
+					filePath = s[0] + "/public_html";
+					for (int i = 1; i < s.length; i++) {
+						filePath = filePath + "/" + s[i];
 					}
-					System.out.println(filePath);
+					if (s.length == 1) {
+						filePath = filePath + "/" + "index.html";
+					}
+
 					File file = new File(filePath);
+					if(!file.exists()){
+						
+					}
 					int fileByteCount = (int) file.length();
 					byte[] bytesInFile = new byte[fileByteCount];
 					FileInputStream requestFileStream = new FileInputStream(
@@ -68,9 +72,7 @@ public class WebServer {
 					serverReply.write(bytesInFile, 0, fileByteCount);
 					clientConnectionSocket.close();
 				}
-				System.out.println("file transmission sucess");
-		//	}
-			
+			}
 
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
