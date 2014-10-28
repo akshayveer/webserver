@@ -8,29 +8,66 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.StringTokenizer;
 
 public class Client extends Thread {
 	Socket clientSocket;
 	private Thread thread;
-
-	public Client(Socket s) {
+	private BufferedReader clientRequest;
+	private DataOutputStream serverReply;
+	boolean stop;
+	int threadNum;
+	public Client(Socket s,int i) {
 		clientSocket = s;
-	}
-
-	@SuppressWarnings("deprecation")
-	public void run() {
-		String[] paths = getRequestedFile(clientSocket);
-		if(paths[1]==null) return;
-		sendMessage(clientSocket, paths[0], paths[1]);
-		/*try {
-			clientSocket.close();
-			this.stop();
+		threadNum=i;
+		stop=false;
+		try {
+			serverReply = new DataOutputStream(
+					clientSocket.getOutputStream());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}*/
-		this.stop();
+		}
+		
+	}
+
+	void closeConnection(){
+		
+		try {
+			clientRequest.close();
+		} catch (IOException e) {
+			
+		}
+		try {
+			serverReply.close();
+		} catch (IOException e) {
+			
+		}
+		try {
+			clientSocket.close();
+		} catch (IOException e) {
+			
+		}
+	}
+	public void run() {
+		try {
+			clientSocket.setSoTimeout(5000);
+			long start = System.currentTimeMillis();
+			long end = start + 5*1000; // 60 seconds * 1000 ms/sec
+			while(System.currentTimeMillis() < end){
+				System.out.print(" tcp connectoin listening ");
+				System.out.println(threadNum);
+				String[] paths = getRequestedFile();
+				if(paths[1]==null) continue;
+				sendMessage(paths[0], paths[1]);
+			}
+			closeConnection();
+		} catch (SocketException e1) {
+			closeConnection();
+		}
+		System.out.print("tcp connection closed ");
+		System.out.println(threadNum);
 	}
 
 	public void start() {
@@ -38,14 +75,20 @@ public class Client extends Thread {
 		thread.start();
 	}
 
-	public String[] getRequestedFile(Socket socket) {
+	public String[] getRequestedFile() {
 		String filePath = null;
 		String origFile = null;
 		try {
-			BufferedReader clientRequest = new BufferedReader(
-					new InputStreamReader(socket.getInputStream()));
+			try {
+				clientRequest = new BufferedReader(
+						new InputStreamReader(clientSocket.getInputStream()));
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			String clientRequestLine = clientRequest.readLine();
-			System.out.println(clientRequestLine);
+			System.out.print(clientRequestLine);
+			System.out.println(threadNum);
 			if (clientRequestLine == null) {
 				return new String[] { filePath, origFile };
 			}
@@ -77,21 +120,19 @@ public class Client extends Thread {
 				}
 
 			}
-
+			
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			closeConnection();
 		}
-
+		
 		return new String[] { filePath, origFile };
 	}
 
-	public void sendMessage(Socket socket, String filePath, String origfile) {
+	public void sendMessage(String filePath, String origfile) {
 
 		try {
-			DataOutputStream serverReply = new DataOutputStream(
-					socket.getOutputStream());
-			String httpStartLine = "HTTP/1.0 200 Document Follows\r\n";
+			 
+			String httpStartLine = "HTTP/1.1 200 Document Follows\r\n";
 			File file = new File(filePath);
 			if (!file.exists()) {
 
@@ -124,11 +165,9 @@ public class Client extends Thread {
 			serverReply.writeBytes("\r\n");
 			serverReply.write(bytesInFile, 0, fileByteCount);
 			serverReply.flush();
-			serverReply.close();
 
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			closeConnection();
 		}
 	}
 }

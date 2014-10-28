@@ -9,7 +9,7 @@ import server.Client;
 public class WebServer {
 	static ServerSocket listenSocket;
 	static Client client;
-
+	
 	public WebServer(int p) {
 		try {
 			listenSocket = new ServerSocket(p);
@@ -27,14 +27,14 @@ public class WebServer {
 		}
 		new WebServer(port);
 		Socket clientConnectionSocket = null;
-
+		int i=1;
 		try {
 			while (true) {
 				
 					clientConnectionSocket = listenSocket.accept();
-					client = new Client(clientConnectionSocket);
+					client = new Client(clientConnectionSocket,i);
 					client.start();
-				
+					i++;
 			}
 
 		} catch (IOException e) {
