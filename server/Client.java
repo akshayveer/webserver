@@ -142,6 +142,13 @@ public class Client extends Thread {
 
 		return;
 	}
+	
+	String getContentType(){
+		if(filePath.endsWith("jpg")) return "Content-Type: image/jpeg\r\n";
+		if(filePath.endsWith("png")) return "Content-Type: image/png\r\n";
+		return "text/html; charset=iso-8859-1\r\n";
+		
+	}
 
 	void httpMessage(String title, String body) {
 
@@ -173,7 +180,7 @@ public class Client extends Thread {
 			if(origFile.equals(" ")){
 				temp=filePath;
 				filePath="movedPermanently.html";
-				httpStartLine="HTTP/1.1 301 Moved Permanently";
+				httpStartLine="HTTP/1.1 301 Moved Permanently\r\n";
 				httpMessage("301 Moved Permanently","The document has moved href=http://"+host+temp+"here.");
 			}
 			else{
@@ -183,7 +190,7 @@ public class Client extends Thread {
 				}
 				else {
 					stop=true;
-					httpStartLine = "HTTP/1.1 404 Not Found";
+					httpStartLine = "HTTP/1.1 404 Not Found\r\n";
 					filePath = "fileNotFound.html";
 					httpMessage("404 Not Found","The requested URL " + origFile + " was not found on this server.");
 				}
@@ -198,16 +205,20 @@ public class Client extends Thread {
 			Date d1 = new Date();
 			SimpleDateFormat df = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss z");
 			String formattedDate = df.format(d1);
-			
-			System.out.println(formattedDate);
-			
+						
 			serverReply.writeBytes(httpStartLine);
-//			serverReply.writeBytes(formattedDate);
+			serverReply.writeBytes("Date "+formattedDate+"\r\n");
+			serverReply.writeBytes("Server: Ak-server/1.0\r\n");
+			serverReply.writeBytes(df.format(file.lastModified())+"\r\n");
 			serverReply.writeBytes("Content-Length: " + fileByteCount + "\r\n");
 			if(origFile.equals(" ")){
 				serverReply.writeBytes("Location: http://"+host+temp);
 				stop=true;
 			}
+			if(stop){
+				serverReply.writeBytes("Connection: close\r\n");
+			}
+			serverReply.writeBytes("Content-Type: "+getContentType());
 			serverReply.writeBytes("\r\n");
 			serverReply.write(bytesInFile, 0, fileByteCount);
 			serverReply.flush();
