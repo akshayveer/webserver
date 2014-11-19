@@ -26,7 +26,7 @@ public class Client extends Thread {
 	String origFile;
 	String httpStartLine;
 	String host;
-
+	boolean headRequest;
 	public Client(Socket s, int i) {
 		clientSocket = s;
 		threadNum = i;
@@ -101,6 +101,7 @@ public class Client extends Thread {
 			}
 			String clientRequestLine = clientRequest.readLine();
 			System.out.print(clientRequestLine);
+			System.out.print(" ");
 			System.out.println(threadNum);
 			if (clientRequestLine == null) {
 				return;
@@ -108,9 +109,16 @@ public class Client extends Thread {
 			host= (clientRequest.readLine()).split(" ")[1];
 			StringTokenizer tokenizedLine = new StringTokenizer(
 					clientRequestLine);
-			if (tokenizedLine.nextToken().equals("GET")) {
+			String firstLine=tokenizedLine.nextToken();
+			if (firstLine.equals("GET") || firstLine.equals("HEAD")) {
+				if (firstLine.equals("HEAD")) headRequest=true;
 				filePath = tokenizedLine.nextToken();
 				origFile = filePath;
+				if(!filePath.endsWith("/") && !filePath.contains(".")){
+					filePath = origFile + "/";
+					origFile = " ";
+					return;
+				}
 				if (filePath.length() <= 2) {
 					filePath = " ";
 					return;
@@ -135,6 +143,7 @@ public class Client extends Thread {
 				}
 
 			}
+			
 
 		} catch (IOException e) {
 			closeConnection();
@@ -186,7 +195,23 @@ public class Client extends Thread {
 			else{
 				file = new File(filePath);
 				if(file.exists()){
-					httpStartLine = "HTTP/1.1 200 Document Follows\r\n";
+					if(file.isFile()){
+						httpStartLine = "HTTP/1.1 200 OK\r\n";
+					}
+					if(file.isDirectory()){
+						temp=filePath+"/"+"index.html";
+						file=new File(temp);
+						if(file.exists()){
+							filePath=temp;
+							httpStartLine = "HTTP/1.1 200 OK\r\n";
+						}
+						if(!file.exists()){
+							stop=true;
+							httpStartLine = "HTTP/1.1 404 Not Found\r\n";
+							filePath = "fileNotFound.html";
+							httpMessage("404 Not Found","The requested URL " + origFile + " was not found on this server.");
+						}
+					}
 				}
 				else {
 					stop=true;
@@ -207,20 +232,21 @@ public class Client extends Thread {
 			String formattedDate = df.format(d1);
 						
 			serverReply.writeBytes(httpStartLine);
-			serverReply.writeBytes("Date "+formattedDate+"\r\n");
+			serverReply.writeBytes("Date: "+formattedDate+"\r\n");
 			serverReply.writeBytes("Server: Ak-server/1.0\r\n");
-			serverReply.writeBytes(df.format(file.lastModified())+"\r\n");
+			serverReply.writeBytes("Last-Modified:"+df.format(file.lastModified())+"\r\n");
 			serverReply.writeBytes("Content-Length: " + fileByteCount + "\r\n");
 			if(origFile.equals(" ")){
+				System.out.println("Location: http://"+host+temp);
 				serverReply.writeBytes("Location: http://"+host+temp);
 				stop=true;
 			}
-			if(stop){
+			/*if(stop){
 				serverReply.writeBytes("Connection: close\r\n");
-			}
-			serverReply.writeBytes("Content-Type: "+getContentType());
+			}*/
+//			serverReply.writeBytes("Content-Type: "+getContentType());
 			serverReply.writeBytes("\r\n");
-			serverReply.write(bytesInFile, 0, fileByteCount);
+			if(!headRequest) serverReply.write(bytesInFile, 0, fileByteCount);
 			serverReply.flush();
 
 		} catch (IOException e) {
